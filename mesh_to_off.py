@@ -3,6 +3,32 @@
 import rospy
 from voxblox_msgs.msg import Mesh
 import numpy as np
+import socket 
+import threading
+import queue
+import struct
+
+## 全局变量
+send_queue = queue.Queue() # 线程安全队列存储待发送数据
+send_event = threading.Event() #用于线程同步的事件标志
+sock = None # Socket连接对象
+
+def send_data_thread():
+    global sock 
+    while not rospy.is_shutdown():
+        send_event.wait() # 阻塞等待数据到达
+        send_event.clear() #清除事件标志
+
+        try:
+            while not send_queue.empty():
+                data_str = send_queue.get_nowait() # 取出队列头部数据
+                #先发送4字节数据长度(大端序)
+                sock.sendall(struct.pack(">I",len(data_str)))
+                #再发送数据内容
+                sock.sendall(data_str.encode('utf-8'))
+                rospy.loginfo("发送成功")
+        except Exception as e:
+            rospy.logerr(f"发送异常:{e}")
 
 def mesh_callback(msg):
     vertices = []  # 存储全局顶点坐标
@@ -20,53 +46,57 @@ def mesh_callback(msg):
 
     # 遍历每个 MeshBlock
     for block in msg.mesh_blocks:
-        # 计算当前块在全局坐标系中的偏移量（假定 block.index 表示块的三维索引）
         block_offset = np.array(block.index, dtype=np.float32) * msg.block_edge_length
 
-        # 假设各数组长度相同，每三个点构成一个三角面
         num_vertices = len(block.x)
         num_triangles = num_vertices // 3
 
         for i in range(num_triangles):
-            # 解码三个顶点的坐标
             v1 = block_offset + (((np.array([block.x[3*i],   block.y[3*i],   block.z[3*i]],   dtype=np.float32) * point_conv_factor) - 1.0) * msg.block_edge_length)
             v2 = block_offset + (((np.array([block.x[3*i+1], block.y[3*i+1], block.z[3*i+1]], dtype=np.float32) * point_conv_factor) - 1.0) * msg.block_edge_length)
             v3 = block_offset + (((np.array([block.x[3*i+2], block.y[3*i+2], block.z[3*i+2]], dtype=np.float32) * point_conv_factor) - 1.0) * msg.block_edge_length)
             vertices.extend([v1, v2, v3])
 
-            # 提取每个顶点的颜色信息 (颜色范围通常为 0-255)
             c1 = (block.r[3*i],   block.g[3*i],   block.b[3*i])
             c2 = (block.r[3*i+1], block.g[3*i+1], block.b[3*i+2])
             c3 = (block.r[3*i+2], block.g[3*i+2], block.b[3*i+2])
             colors.extend([c1, c2, c3])
 
-            # 保存三角面索引（每三个顶点构成一个三角形）
             faces.append([vertex_index, vertex_index+1, vertex_index+2])
             vertex_index += 3
 
-
-    if len(vertices)==0:
+    if len(vertices) == 0:
         rospy.logwarn("没有数据，无法保存")
         return 
 
-    # 将提取的网格信息写入 COFF 文件（文件保存为 output.off）
-    with open('output.off', 'w') as f:
-        # COFF 格式第一行
-        f.write("COFF\n")
-        # 第二行：顶点数、面数、边数（边数可以填 0）
-        f.write("{} {} 0\n".format(len(vertices), len(faces)))
-        # 每个顶点一行：x y z r g b
-        for v, c in zip(vertices, colors):
-            f.write("{} {} {} {} {} {}\n".format(v[0], v[1], v[2], c[0], c[1], c[2]))
-        # 接下来写入每个面：先写顶点数（这里固定为3），再写对应的顶点索引
-        for face in faces:
-            f.write("3 {} {} {}\n".format(face[0], face[1], face[2]))
+    data_str = []
+    data_str.append("COFF")  
+    data_str.append(f"{len(vertices)} {len(faces)} 0")  
 
-    rospy.loginfo("COFF 文件已保存为 output.off")
+    for v, c in zip(vertices, colors):
+        vertex_line = " ".join([f"{v[i]:.6f}" for i in range(3)]) + " " + " ".join([f"{c[i]:.6f}" for i in range(3)])
+        data_str.append(vertex_line)
+
+    for face in faces:
+        data_str.append(f"3 {face[0]} {face[1]} {face[2]}")
+
+    send_queue.put('\n'.join(data_str))  
+    send_event.set()  
 
 def main():
+    global sock
     rospy.init_node('mesh_to_coff_converter')
     rospy.Subscriber("/voxblox_node/mesh", Mesh, mesh_callback)
+    
+    # 初始化 socket 连接
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.connect(("127.0.0.1", 12345))  
+
+    
+    # 启动发送线程
+    send_thread = threading.Thread(target=send_data_thread, daemon=True)
+    send_thread.start()
+    
     rospy.spin()
 
 if __name__ == '__main__':

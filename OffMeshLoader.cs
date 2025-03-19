@@ -122,8 +122,8 @@ public class OffMeshLoader : MonoBehaviour
                 }
                 else if (isCOFF)
                 {
-                    // 每行需要 7个数字：x y z r g b a 
-                    if (parts.Length < 7)
+                    // 每行需要 7个数字：x y z r g b 
+                    if (parts.Length < 6)
                     {
                         Debug.LogError("NCOFF 顶点数据格式错误, 预期7 个数字，但实际只有 " + parts.Length);
                         return null;
@@ -139,7 +139,7 @@ public class OffMeshLoader : MonoBehaviour
                     float r = float.Parse(parts[3]);
                     float g = float.Parse(parts[4]);
                     float b = float.Parse(parts[5]);
-                    float a = float.Parse(parts[6]);
+                    float a = 255;
                     // 如果颜色值大于 1，则认为是 0～255 需要归一化
                     if (r > 1f || g > 1f || b > 1f || a > 1f)
                     {

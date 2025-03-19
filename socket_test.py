@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import socket
 import struct
-import sys
+import threading
 
 def parse_coff_data(data_str):
     """解析 COFF 格式数据并返回顶点/面信息"""
@@ -11,8 +11,8 @@ def parse_coff_data(data_str):
     
     try:
         v_count, f_count, _ = map(int, lines[1].split())
-    except:
-        raise ValueError("Invalid header line format")
+    except Exception as e:
+        raise ValueError("Invalid header line format") from e
 
     vertices, colors, faces = [], [], []
     for line in lines[2:2+v_count]:
@@ -31,64 +31,68 @@ def parse_coff_data(data_str):
     return vertices, colors, faces, v_count, f_count
 
 def handle_client(conn, addr):
-    """处理单个客户端连接"""
+    """处理单个客户端连接（持久连接）"""
     print(f"[INFO] Connection established from {addr}")
     
     try:
-        # 读取前 4 字节，获取数据长度
-        header = conn.recv(4)
-        if not header:
-            print("[ERROR] Failed to receive data length")
-            return
-        data_len = struct.unpack('>I', header)[0]
-        print(f"[INFO] Expected data length: {data_len}")
-        
-        # 读取数据
-        data_buffer = b''
-        while len(data_buffer) < data_len:
-            chunk = conn.recv(data_len - len(data_buffer))
-            if not chunk:
-                print("[ERROR] Connection closed prematurely")
-                return
-            data_buffer += chunk
-        
-        print("[INFO] Data received successfully")
-        
-        # 解析 COFF 数据
-        try:
-            vertices, colors, faces, v_count, f_count = parse_coff_data(data_buffer.decode('utf-8'))
-            print(f"[INFO] Parsed Mesh - Vertices: {v_count}, Faces: {f_count}")
+        while True:
+            # 读取前 4 字节，获取数据长度
+            header = conn.recv(4)
+            if not header:
+                print("[INFO] 客户端已关闭连接。")
+                break
+            data_len = struct.unpack('>I', header)[0]
+            print(f"[INFO] 预期数据长度: {data_len}")
             
-            # 保存为 OFF 文件
-            with open('received_mesh.off', 'w') as f:
-                f.write("COFF\n")
-                f.write(f"{v_count} {f_count} 0\n")
-                for v, c in zip(vertices, colors):
-                    f.write(f"{v[0]} {v[1]} {v[2]} {c[0]} {c[1]} {c[2]}\n")
-                for face in faces:
-                    f.write(f"3 {face[0]} {face[1]} {face[2]}\n")
-            print("[INFO] Mesh saved as received_mesh.off")
+            # 持续读取数据，直到读取到完整的消息
+            data_buffer = b''
+            while len(data_buffer) < data_len:
+                chunk = conn.recv(data_len - len(data_buffer))
+                if not chunk:
+                    print("[ERROR] 连接意外关闭。")
+                    break
+                data_buffer += chunk
             
-        except Exception as e:
-            print(f"[ERROR] Failed to parse COFF data: {e}")
-    
+            if len(data_buffer) < data_len:
+                print("[ERROR] 数据不完整，关闭连接。")
+                break
+
+            print("[INFO] 数据接收成功。")
+            
+            # 解析 COFF 数据并保存到文件
+            try:
+                vertices, colors, faces, v_count, f_count = parse_coff_data(data_buffer.decode('utf-8'))
+                print(f"[INFO] 解析 Mesh 成功 - 顶点数: {v_count}, 面数: {f_count}")
+                
+                # 保存为 OFF 文件（覆盖原有文件）
+                with open('received_mesh.off', 'w') as f:
+                    f.write("COFF\n")
+                    f.write(f"{v_count} {f_count} 0\n")
+                    for v, c in zip(vertices, colors):
+                        f.write(f"{v[0]} {v[1]} {v[2]} {c[0]} {c[1]} {c[2]}\n")
+                    for face in faces:
+                        f.write(f"3 {face[0]} {face[1]} {face[2]}\n")
+                print("[INFO] Mesh 已保存为 received_mesh.off")
+            except Exception as e:
+                print(f"[ERROR] 解析 COFF 数据失败: {e}")
     except Exception as e:
-        print(f"[ERROR] Exception in client handling: {e}")
-    
+        print(f"[ERROR] 客户端处理过程中异常: {e}")
     finally:
         conn.close()
-        print("[INFO] Connection closed")
+        print("[INFO] 连接关闭")
 
 def start_server(host='0.0.0.0', port=12345):
     """启动 TCP 服务器"""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind((host, port))
         s.listen()
-        print(f"[INFO] Server listening on {host}:{port}")
+        print(f"[INFO] 服务器监听 {host}:{port}")
         
         while True:
             conn, addr = s.accept()
-            handle_client(conn, addr)
+            # 为每个客户端连接启动一个独立的线程
+            client_thread = threading.Thread(target=handle_client, args=(conn, addr), daemon=True)
+            client_thread.start()
 
 if __name__ == '__main__':
     start_server()

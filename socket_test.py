@@ -4,10 +4,13 @@ import struct
 import threading
 
 def parse_coff_data(data_str):
-    """解析 COFF 格式数据并返回顶点/面信息"""
+    """解析 COFF/OFF 格式数据并返回顶点/面信息"""
     lines = data_str.strip().split('\n')
-    if not lines or lines[0] != "COFF":
-        raise ValueError("Invalid COFF header")
+    if not lines:
+        raise ValueError("Empty data")
+    header = lines[0].strip()
+    if header not in ("COFF", "OFF"):
+        raise ValueError("Invalid header: " + header)
     
     try:
         v_count, f_count, _ = map(int, lines[1].split())
@@ -15,20 +18,24 @@ def parse_coff_data(data_str):
         raise ValueError("Invalid header line format") from e
 
     vertices, colors, faces = [], [], []
+    # 如果 header 为 COFF，则每个顶点应包含 6 个值 (xyz rgb)，否则仅有 xyz
+    expected_vertex_values = 6 if header == "COFF" else 3
+
     for line in lines[2:2+v_count]:
         parts = list(map(float, line.split()))
-        if len(parts) != 6:
+        if len(parts) != expected_vertex_values:
             continue
         vertices.append((parts[0], parts[1], parts[2]))
-        colors.append((parts[3], parts[4], parts[5]))
+        if expected_vertex_values == 6:
+            colors.append((parts[3], parts[4], parts[5]))
     
     for line in lines[2+v_count:2+v_count+f_count]:
         parts = list(map(int, line.split()))
-        if len(parts) != 4 or parts[0] != 3:
+        if len(parts) < 4 or parts[0] != 3:
             continue
         faces.append((parts[1], parts[2], parts[3]))
     
-    return vertices, colors, faces, v_count, f_count
+    return header, vertices, colors, faces, v_count, f_count
 
 def handle_client(conn, addr):
     """处理单个客户端连接（持久连接）"""
@@ -37,11 +44,11 @@ def handle_client(conn, addr):
     try:
         while True:
             # 读取前 4 字节，获取数据长度
-            header = conn.recv(4)
-            if not header:
+            header_bytes = conn.recv(4)
+            if not header_bytes:
                 print("[INFO] 客户端已关闭连接。")
                 break
-            data_len = struct.unpack('>I', header)[0]
+            data_len = struct.unpack('>I', header_bytes)[0]
             print(f"[INFO] 预期数据长度: {data_len}")
             
             # 持续读取数据，直到读取到完整的消息
@@ -59,17 +66,21 @@ def handle_client(conn, addr):
 
             print("[INFO] 数据接收成功。")
             
-            # 解析 COFF 数据并保存到文件
+            # 解析 COFF/OFF 数据并保存到文件
             try:
-                vertices, colors, faces, v_count, f_count = parse_coff_data(data_buffer.decode('utf-8'))
-                print(f"[INFO] 解析 Mesh 成功 - 顶点数: {v_count}, 面数: {f_count}")
+                header, vertices, colors, faces, v_count, f_count = parse_coff_data(data_buffer.decode('utf-8'))
+                print(f"[INFO] 解析 Mesh 成功 - 顶点数: {v_count}, 面数: {f_count}, 格式: {header}")
                 
                 # 保存为 OFF 文件（覆盖原有文件）
                 with open('received_mesh.off', 'w') as f:
-                    f.write("COFF\n")
+                    f.write(f"{header}\n")
                     f.write(f"{v_count} {f_count} 0\n")
-                    for v, c in zip(vertices, colors):
-                        f.write(f"{v[0]} {v[1]} {v[2]} {c[0]} {c[1]} {c[2]}\n")
+                    if header == "COFF":
+                        for v, c in zip(vertices, colors):
+                            f.write(f"{v[0]} {v[1]} {v[2]} {c[0]} {c[1]} {c[2]}\n")
+                    else:  # OFF 格式：仅输出 xyz
+                        for v in vertices:
+                            f.write(f"{v[0]} {v[1]} {v[2]}\n")
                     for face in faces:
                         f.write(f"3 {face[0]} {face[1]} {face[2]}\n")
                 print("[INFO] Mesh 已保存为 received_mesh.off")

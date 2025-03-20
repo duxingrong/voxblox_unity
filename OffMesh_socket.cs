@@ -7,12 +7,12 @@ using UnityEngine;
 
 public class OffMeshServer : MonoBehaviour
 {
-    public int port = 12345; // ç›‘å¬ç«¯å£
+    public int port = 12345; // ¼àÌı¶Ë¿Ú
     private TcpListener listener;
     private Thread listenerThread;
     private volatile bool isRunning = false;
 
-    // ç”¨äºçº¿ç¨‹é—´ä¼ é€’ off æ•°æ®çš„é˜Ÿåˆ—
+    // ÓÃÓÚÏß³Ì¼ä´«µİ off Êı¾İµÄ¶ÓÁĞ
     private Queue<string> offDataQueue = new Queue<string>();
     private object queueLock = new object();
 
@@ -27,7 +27,7 @@ public class OffMeshServer : MonoBehaviour
     }
 
     /// <summary>
-    /// å¯åŠ¨ TCP æœåŠ¡å™¨ï¼Œç›‘å¬æ¥è‡ª Python å®¢æˆ·ç«¯çš„è¿æ¥
+    /// Æô¶¯ TCP ·şÎñÆ÷£¬¼àÌıÀ´×Ô Python ¿Í»§¶ËµÄÁ¬½Ó
     /// </summary>
     void StartServer()
     {
@@ -55,7 +55,7 @@ public class OffMeshServer : MonoBehaviour
     }
 
     /// <summary>
-    /// ç­‰å¾…å®¢æˆ·ç«¯è¿æ¥ï¼Œæ¯å½“æœ‰å®¢æˆ·ç«¯è¿æ¥æ—¶ï¼Œä¸ºå…¶å¯åŠ¨ä¸€ä¸ªæ–°çš„çº¿ç¨‹å¤„ç†æ•°æ®æ¥æ”¶
+    /// µÈ´ı¿Í»§¶ËÁ¬½Ó£¬Ã¿µ±ÓĞ¿Í»§¶ËÁ¬½ÓÊ±£¬ÎªÆäÆô¶¯Ò»¸öĞÂµÄÏß³Ì´¦ÀíÊı¾İ½ÓÊÕ
     /// </summary>
     void ListenForClients()
     {
@@ -77,8 +77,8 @@ public class OffMeshServer : MonoBehaviour
     }
 
     /// <summary>
-    /// å¤„ç†å•ä¸ªå®¢æˆ·ç«¯è¿æ¥
-    /// åè®®ï¼šå…ˆæ¥æ”¶ 4 å­—èŠ‚ï¼ˆå¤§ç«¯åºï¼‰æ•°æ®é•¿åº¦ï¼Œå†æ¥æ”¶ off æ•°æ®å­—ç¬¦ä¸²
+    /// ´¦Àíµ¥¸ö¿Í»§¶ËÁ¬½Ó
+    /// Ğ­Òé£ºÏÈ½ÓÊÕ 4 ×Ö½Ú£¨´ó¶ËĞò£©Êı¾İ³¤¶È£¬ÔÙ½ÓÊÕ off Êı¾İ×Ö·û´®
     /// </summary>
     /// <param name="client"></param>
     void HandleClient(TcpClient client)
@@ -88,7 +88,7 @@ public class OffMeshServer : MonoBehaviour
         {
             while (isRunning && client.Connected)
             {
-                // æ¥æ”¶å‰ 4 å­—èŠ‚ï¼Œè·å–æ•°æ®é•¿åº¦
+                // ½ÓÊÕÇ° 4 ×Ö½Ú£¬»ñÈ¡Êı¾İ³¤¶È
                 byte[] lengthBuffer = new byte[4];
                 int readBytes = stream.Read(lengthBuffer, 0, 4);
                 if (readBytes < 4)
@@ -96,14 +96,14 @@ public class OffMeshServer : MonoBehaviour
                     Debug.LogWarning("Client disconnected or error reading length.");
                     break;
                 }
-                // å¤„ç†å¤§ç«¯åºæ•°æ®ï¼ˆå¦‚æœç³»ç»Ÿä¸ºå°ç«¯ï¼‰
+                // ´¦Àí´ó¶ËĞòÊı¾İ£¨Èç¹ûÏµÍ³ÎªĞ¡¶Ë£©
                 if (BitConverter.IsLittleEndian)
                 {
                     Array.Reverse(lengthBuffer);
                 }
                 int dataLength = BitConverter.ToInt32(lengthBuffer, 0);
 
-                // æ¥æ”¶ off æ•°æ®å†…å®¹
+                // ½ÓÊÕ off Êı¾İÄÚÈİ
                 byte[] dataBuffer = new byte[dataLength];
                 int totalRead = 0;
                 while (totalRead < dataLength)
@@ -124,7 +124,7 @@ public class OffMeshServer : MonoBehaviour
                 string offData = System.Text.Encoding.UTF8.GetString(dataBuffer);
                 Debug.Log("Received off data.");
 
-                // å°†æ¥æ”¶åˆ°çš„ off æ•°æ®æ”¾å…¥é˜Ÿåˆ—ï¼Œç­‰å¾…ä¸»çº¿ç¨‹å¤„ç†æ›´æ–° Mesh
+                // ½«½ÓÊÕµ½µÄ off Êı¾İ·ÅÈë¶ÓÁĞ£¬µÈ´ıÖ÷Ïß³Ì´¦Àí¸üĞÂ Mesh
                 lock (queueLock)
                 {
                     offDataQueue.Enqueue(offData);
@@ -143,7 +143,7 @@ public class OffMeshServer : MonoBehaviour
 
     void Update()
     {
-        // ä¸»çº¿ç¨‹ä¸­æ£€æµ‹é˜Ÿåˆ—æ˜¯å¦æœ‰æ–° off æ•°æ®
+        // Ö÷Ïß³ÌÖĞ¼ì²â¶ÓÁĞÊÇ·ñÓĞĞÂ off Êı¾İ
         string offData = null;
         lock (queueLock)
         {
@@ -183,7 +183,7 @@ public class OffMeshServer : MonoBehaviour
     }
 
     /// <summary>
-    /// ä» off æ ¼å¼å­—ç¬¦ä¸²è§£æ Meshï¼Œä¸ä»æ–‡ä»¶è¯»å–é€»è¾‘ç±»ä¼¼
+    /// ´Ó off ¸ñÊ½×Ö·û´®½âÎö Mesh£¬Óë´ÓÎÄ¼ş¶ÁÈ¡Âß¼­ÀàËÆ
     /// </summary>
     /// <param name="offData"></param>
     /// <returns></returns>
@@ -191,7 +191,7 @@ public class OffMeshServer : MonoBehaviour
     {
         try
         {
-            // æŒ‰è¡Œåˆ†å‰²ï¼Œå»é™¤ç©ºè¡Œ
+            // °´ĞĞ·Ö¸î£¬È¥³ı¿ÕĞĞ
             string[] lines = offData.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.RemoveEmptyEntries);
             if (lines.Length < 2)
             {
@@ -211,7 +211,7 @@ public class OffMeshServer : MonoBehaviour
                 return null;
             }
 
-            // è§£æé¡¶ç‚¹æ•°å’Œé¢æ•°
+            // ½âÎö¶¥µãÊıºÍÃæÊı
             string[] counts = lines[1].Split(new char[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
             int vertexCount = int.Parse(counts[0]);
             int faceCount = int.Parse(counts[1]);
@@ -226,7 +226,7 @@ public class OffMeshServer : MonoBehaviour
                 string[] parts = lines[vertexDataStart + i].Split(new char[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
                 if (isNCOFF)
                 {
-                    // NCOFF æ ¼å¼ï¼šx y z r g b a nx ny nz
+                    // NCOFF ¸ñÊ½£ºx y z r g b a nx ny nz
                     if (parts.Length < 10)
                     {
                         Debug.LogError("NCOFF vertex data error, expected 10 values, got " + parts.Length);
@@ -254,7 +254,7 @@ public class OffMeshServer : MonoBehaviour
                 }
                 else if (isCOFF)
                 {
-                    // COFF æ ¼å¼ï¼šx y z r g b 
+                    // COFF ¸ñÊ½£ºx y z r g b 
                     if (parts.Length < 6)
                     {
                         Debug.LogError("COFF vertex data error, expected 6 values, got " + parts.Length);
@@ -263,7 +263,8 @@ public class OffMeshServer : MonoBehaviour
                     float x = float.Parse(parts[0]);
                     float y = float.Parse(parts[1]);
                     float z = float.Parse(parts[2]);
-                    vertices.Add(ConvertRosToUnity(new Vector3(x, y, z)));
+                    ///vertices.Add(ConvertRosToUnity(new Vector3(x, y, z)));
+                    vertices.Add(new Vector3(x,y,z));
 
                     float r = float.Parse(parts[3]);
                     float g = float.Parse(parts[4]);
@@ -277,7 +278,7 @@ public class OffMeshServer : MonoBehaviour
                 }
                 else if (isNOFF)
                 {
-                    // NOFF æ ¼å¼ï¼šx y z nx ny nz
+                    // NOFF ¸ñÊ½£ºx y z nx ny nz
                     if (parts.Length < 6)
                     {
                         Debug.LogError("NOFF vertex data error.");
@@ -293,7 +294,7 @@ public class OffMeshServer : MonoBehaviour
                     float nz = float.Parse(parts[5]);
                     vertexNormals.Add(ConvertRosToUnity(new Vector3(nx, ny, nz)));
                 }
-                else // OFF æ ¼å¼ï¼ŒåªåŒ…å«é¡¶ç‚¹åæ ‡
+                else // OFF ¸ñÊ½£¬Ö»°üº¬¶¥µã×ø±ê
                 {
                     if (parts.Length < 3)
                     {
@@ -326,7 +327,7 @@ public class OffMeshServer : MonoBehaviour
                 }
                 else
                 {
-                    // ä¸‰è§’å‰–åˆ†ï¼šç¬¬ä¸€ä¸ªé¡¶ç‚¹ä¸åç»­é¡¶ç‚¹æ„æˆä¸‰è§’å½¢
+                    // Èı½ÇÆÊ·Ö£ºµÚÒ»¸ö¶¥µãÓëºóĞø¶¥µã¹¹³ÉÈı½ÇĞÎ
                     int firstIndex = int.Parse(parts[1]);
                     for (int j = 2; j < vertexInFace; j++)
                     {
@@ -363,7 +364,7 @@ public class OffMeshServer : MonoBehaviour
         }
     }
 
-    // åæ ‡è½¬æ¢ï¼šUnity.x = -ROS.y, Unity.y = ROS.z, Unity.z = ROS.x
+    // ×ø±ê×ª»»£ºUnity.x = -ROS.y, Unity.y = ROS.z, Unity.z = ROS.x
     Vector3 ConvertRosToUnity(Vector3 rosCoord)
     {
         return new Vector3(-rosCoord.y, rosCoord.z, rosCoord.x);

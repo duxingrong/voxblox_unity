@@ -263,8 +263,8 @@ public class OffMeshServer : MonoBehaviour
                     float x = float.Parse(parts[0]);
                     float y = float.Parse(parts[1]);
                     float z = float.Parse(parts[2]);
-                    ///vertices.Add(ConvertRosToUnity(new Vector3(x, y, z)));
-                    vertices.Add(new Vector3(x,y,z));
+                    vertices.Add(ConvertRosToUnity(new Vector3(x, y, z)));
+                    // vertices.Add(new Vector3(x,y,z));
 
                     float r = float.Parse(parts[3]);
                     float g = float.Parse(parts[4]);

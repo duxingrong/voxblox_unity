@@ -339,6 +339,7 @@ public class OffMeshServer : MonoBehaviour
             }
 
             Mesh mesh = new Mesh();
+            mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32; // ¿¿¿¿¿¿¿ 32 ¿
             mesh.SetVertices(vertices);
             mesh.SetTriangles(triangles, 0);
 

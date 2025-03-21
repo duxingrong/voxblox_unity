@@ -86,7 +86,7 @@ public class OffMeshLoader : MonoBehaviour
                 if (isNCOFF)
                 {
                     // Ã¿ÐÐÐèÒª 10 ¸öÊý×Ö£ºx y z r g b a nx ny nz
-                    if (parts.Length < 10)
+                    if (parts.Length < 9)
                     {
                         Debug.LogError("NCOFF ¶¥µãÊý¾Ý¸ñÊ½´íÎó, Ô¤ÆÚ 10 ¸öÊý×Ö£¬µ«Êµ¼ÊÖ»ÓÐ " + parts.Length);
                         return null;
@@ -102,7 +102,7 @@ public class OffMeshLoader : MonoBehaviour
                     float r = float.Parse(parts[3]);
                     float g = float.Parse(parts[4]);
                     float b = float.Parse(parts[5]);
-                    float a = float.Parse(parts[6]);
+                    float a = 255;
                     // Èç¹ûÑÕÉ«Öµ´óÓÚ 1£¬ÔòÈÏÎªÊÇ 0¡«255 ÐèÒª¹éÒ»»¯
                     if (r > 1f || g > 1f || b > 1f || a > 1f)
                     {
@@ -216,7 +216,9 @@ public class OffMeshLoader : MonoBehaviour
                 }
             }
 
+
             Mesh mesh = new Mesh();
+            mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32; // ¿¿¿¿¿¿¿ 32 ¿
             mesh.SetVertices(vertices);
             mesh.SetTriangles(triangles, 0);
 

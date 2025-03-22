@@ -264,7 +264,8 @@ def main():
 
     # 初始化 socket 连接（根据需要修改 IP 与端口）
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect(("127.0.0.1", 12345))
+    # sock.connect(("127.0.0.1", 12345))
+    sock.connect(("10.192.42.21", 12345))
     send_thread = threading.Thread(target=send_data_thread, daemon=True)
     send_thread.start()
     rospy.spin()

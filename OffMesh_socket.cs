@@ -226,10 +226,10 @@ public class OffMeshServer : MonoBehaviour
                 string[] parts = lines[vertexDataStart + i].Split(new char[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
                 if (isNCOFF)
                 {
-                    // NCOFF 格式：x y z r g b a nx ny nz
-                    if (parts.Length < 10)
+                    // NCOFF 格式：x y z  nx ny nz r g b 
+                    if (parts.Length < 9)
                     {
-                        Debug.LogError("NCOFF vertex data error, expected 10 values, got " + parts.Length);
+                        Debug.LogError("NCOFF vertex data error, expected 9 values, got " + parts.Length);
                         return null;
                     }
                     float x = float.Parse(parts[0]);
@@ -237,19 +237,19 @@ public class OffMeshServer : MonoBehaviour
                     float z = float.Parse(parts[2]);
                     vertices.Add(ConvertRosToUnity(new Vector3(x, y, z)));
 
-                    float r = float.Parse(parts[3]);
-                    float g = float.Parse(parts[4]);
-                    float b = float.Parse(parts[5]);
-                    float a = float.Parse(parts[6]);
+                    float r = float.Parse(parts[6]);
+                    float g = float.Parse(parts[7]);
+                    float b = float.Parse(parts[8]);
+                    float a = 255;
                     if (r > 1f || g > 1f || b > 1f || a > 1f)
                     {
                         r /= 255f; g /= 255f; b /= 255f; a /= 255f;
                     }
                     vertexColors.Add(new Color(r, g, b, a));
 
-                    float nx = float.Parse(parts[7]);
-                    float ny = float.Parse(parts[8]);
-                    float nz = float.Parse(parts[9]);
+                    float nx = float.Parse(parts[3]);
+                    float ny = float.Parse(parts[4]);
+                    float nz = float.Parse(parts[5]);
                     vertexNormals.Add(ConvertRosToUnity(new Vector3(nx, ny, nz)));
                 }
                 else if (isCOFF)

@@ -7,14 +7,17 @@ using UnityEngine;
 
 public class OffMesh_Socket : MonoBehaviour
 {
-    public int port = 12345; // �����˿�
+    public int port = 12345; // 端口号
     private TcpListener listener;
     private Thread listenerThread;
     private volatile bool isRunning = false;
 
-    // �����̼߳䴫�� off ���ݵĶ���
+    // 用于线程间传递 off 数据的队列
     private Queue<string> offDataQueue = new Queue<string>();
     private object queueLock = new object();
+
+    // 用于设置地图对象的 Tag，确保 EyeGazeMarker 脚本能检测到
+    public string targetTag = "MapMesh";
 
     void Start()
     {
@@ -27,7 +30,7 @@ public class OffMesh_Socket : MonoBehaviour
     }
 
     /// <summary>
-    /// ���� TCP ���������������� Python �ͻ��˵�����
+    /// 启动 TCP 服务器，等待 Python 客户端连接
     /// </summary>
     void StartServer()
     {
@@ -55,7 +58,7 @@ public class OffMesh_Socket : MonoBehaviour
     }
 
     /// <summary>
-    /// �ȴ��ͻ������ӣ�ÿ���пͻ�������ʱ��Ϊ������һ���µ��̴߳������ݽ���
+    /// 等待客户端连接，接收到 off 数据后加入队列
     /// </summary>
     void ListenForClients()
     {
@@ -77,8 +80,7 @@ public class OffMesh_Socket : MonoBehaviour
     }
 
     /// <summary>
-    /// ���������ͻ�������
-    /// Э�飺�Ƚ��� 4 �ֽڣ���������ݳ��ȣ��ٽ��� off �����ַ���
+    /// 处理客户端发送的数据，先读取 4 个字节表示数据长度，再读取 off 数据字符串
     /// </summary>
     /// <param name="client"></param>
     void HandleClient(TcpClient client)
@@ -88,7 +90,7 @@ public class OffMesh_Socket : MonoBehaviour
         {
             while (isRunning && client.Connected)
             {
-                // ����ǰ 4 �ֽڣ���ȡ���ݳ���
+                // 读取前 4 个字节（数据长度）
                 byte[] lengthBuffer = new byte[4];
                 int readBytes = stream.Read(lengthBuffer, 0, 4);
                 if (readBytes < 4)
@@ -96,14 +98,14 @@ public class OffMesh_Socket : MonoBehaviour
                     Debug.LogWarning("Client disconnected or error reading length.");
                     break;
                 }
-                // ������������ݣ����ϵͳΪС�ˣ�
+                // 网络传输为大端，如果本机是小端，则反转字节顺序
                 if (BitConverter.IsLittleEndian)
                 {
                     Array.Reverse(lengthBuffer);
                 }
                 int dataLength = BitConverter.ToInt32(lengthBuffer, 0);
 
-                // ���� off ��������
+                // 读取 off 数据
                 byte[] dataBuffer = new byte[dataLength];
                 int totalRead = 0;
                 while (totalRead < dataLength)
@@ -124,7 +126,7 @@ public class OffMesh_Socket : MonoBehaviour
                 string offData = System.Text.Encoding.UTF8.GetString(dataBuffer);
                 Debug.Log("Received off data.");
 
-                // �����յ��� off ���ݷ�����У��ȴ����̴߳������� Mesh
+                // 将 off 数据放入队列，等待主线程中解析生成 Mesh
                 lock (queueLock)
                 {
                     offDataQueue.Enqueue(offData);
@@ -143,7 +145,7 @@ public class OffMesh_Socket : MonoBehaviour
 
     void Update()
     {
-        // ���߳��м������Ƿ����� off ����
+        // 检查队列中是否有 off 数据
         string offData = null;
         lock (queueLock)
         {
@@ -157,6 +159,7 @@ public class OffMesh_Socket : MonoBehaviour
             Mesh mesh = LoadOffFromString(offData);
             if (mesh != null)
             {
+                // 添加或获取 MeshFilter 组件并设置 Mesh
                 MeshFilter mf = GetComponent<MeshFilter>();
                 if (mf == null)
                 {
@@ -164,6 +167,7 @@ public class OffMesh_Socket : MonoBehaviour
                 }
                 mf.mesh = mesh;
 
+                // 添加或获取 MeshRenderer 组件并设置材质
                 MeshRenderer mr = GetComponent<MeshRenderer>();
                 if (mr == null)
                 {
@@ -178,14 +182,25 @@ public class OffMesh_Socket : MonoBehaviour
                 {
                     mr.material = new Material(shader);
                 }
+
+                // 添加或更新 MeshCollider 组件，以便 EyeGazeMarker 能通过射线检测到地图
+                MeshCollider mc = GetComponent<MeshCollider>();
+                if (mc == null)
+                {
+                    mc = gameObject.AddComponent<MeshCollider>();
+                }
+                mc.sharedMesh = mesh;
+
+                // 设置对象的 Tag，确保与 EyeGazeMarker 脚本中的 targetMeshTag 一致
+                gameObject.tag = targetTag;
             }
         }
     }
 
     /// <summary>
-    /// 从 OFF 格式的字符串数据加载 Mesh，并翻转三角形的顶点顺序
+    /// 从 OFF 格式字符串数据加载 Mesh，并翻转三角形顶点顺序
     /// </summary>
-    /// <param name="offData">接收到的 OFF 格式数据</param>
+    /// <param name="offData">接收到的 OFF 数据</param>
     /// <returns>解析得到的 Mesh 对象</returns>
     Mesh LoadOffFromString(string offData)
     {
@@ -245,8 +260,7 @@ public class OffMesh_Socket : MonoBehaviour
                     float r = float.Parse(parts[6]);
                     float g = float.Parse(parts[7]);
                     float b = float.Parse(parts[8]);
-                    float a = 1;
-                    vertexColors.Add(new Color(r, g, b,a));
+                    vertexColors.Add(new Color(r, g, b, 1));
                 }
                 else if (isCOFF)
                 {
@@ -264,8 +278,7 @@ public class OffMesh_Socket : MonoBehaviour
                     float r = float.Parse(parts[3]);
                     float g = float.Parse(parts[4]);
                     float b = float.Parse(parts[5]);
-                    float a = 1;
-                    vertexColors.Add(new Color(r, g, b,a));
+                    vertexColors.Add(new Color(r, g, b, 1));
                 }
                 else if (isNOFF)
                 {
@@ -329,7 +342,7 @@ public class OffMesh_Socket : MonoBehaviour
                 }
             }
 
-            // 翻转三角形顶点顺序，以修正坐标转换后可能导致的背面剔除问题
+            // 翻转三角形顶点顺序，修正背面剔除问题
             for (int i = 0; i < triangles.Count; i += 3)
             {
                 int temp = triangles[i + 1];
@@ -338,7 +351,7 @@ public class OffMesh_Socket : MonoBehaviour
             }
 
             Mesh mesh = new Mesh();
-            mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32; // 设置索引格式为 32 位
+            mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32; // 使用 32 位索引
             mesh.SetVertices(vertices);
             mesh.SetTriangles(triangles, 0);
 
@@ -366,8 +379,7 @@ public class OffMesh_Socket : MonoBehaviour
         }
     }
 
-
-    // ����ת����Unity.x = -ROS.y, Unity.y = ROS.z, Unity.z = ROS.x
+    // 坐标转换：Unity.x = -ROS.y, Unity.y = ROS.z, Unity.z = ROS.x
     Vector3 ConvertRosToUnity(Vector3 rosCoord)
     {
         return new Vector3(-rosCoord.y, rosCoord.z, rosCoord.x);

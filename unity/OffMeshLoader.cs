@@ -6,21 +6,23 @@ using UnityEngine;
 public class OffMeshLoader : MonoBehaviour
 {
     public string offFilePath; // 例如：Application.dataPath + "/off.off"
+    public string targetTag = "MapMesh"; // 请确保在编辑器中已创建该 Tag
 
     void Start()
     {
         Mesh mesh = LoadOffFile(offFilePath);
         if (mesh != null)
         {
+            // 添加 MeshFilter 并设置 Mesh
             MeshFilter mf = gameObject.AddComponent<MeshFilter>();
             mf.mesh = mesh;
 
+            // 添加 MeshRenderer 并设置材质
             MeshRenderer mr = gameObject.GetComponent<MeshRenderer>();
             if (mr == null)
             {
                 mr = gameObject.AddComponent<MeshRenderer>();
             }
-
             Shader shader = Shader.Find("Shader Graphs/VectorColor");
             if (shader == null)
             {
@@ -32,6 +34,17 @@ public class OffMeshLoader : MonoBehaviour
                 Material material = new Material(shader);
                 mr.material = material; // 直接应用材质
             }
+
+            // 添加 MeshCollider 组件并指定 Mesh，确保 Raycast 能检测到
+            MeshCollider mc = gameObject.GetComponent<MeshCollider>();
+            if (mc == null)
+            {
+                mc = gameObject.AddComponent<MeshCollider>();
+            }
+            mc.sharedMesh = mesh;
+
+            // 设置 Tag 为 targetTag，请确保该 Tag 已在 Unity 编辑器中注册
+            gameObject.tag = targetTag;
         }
     }
 

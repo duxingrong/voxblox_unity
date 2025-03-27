@@ -147,6 +147,15 @@ roslaunch voxblox_unity voxblox_unity.launch server_ip:=你的unity所在电脑�
 
 
 
+> [!TIP]
+> MRTK眼动标记
+
+附加功能:结合MRTK，通过眼动追踪来实现标记地图中的特定区域，其中使用的脚本为InitialCameraTransform.cs和EyeGazeMarker.cs
+- 添加一个Tag,叫做"MapMesh"
+- 将InitialCameraTransform.cs附加到main camera上，作用主要是为了方便俯视标记物体，具体角度可以自己调试修改脚本内容
+- 将EyeGazeMarker.cs挂载到空物体上，制作标记物,Tag设置为"FinalMarker",然后拖到脚本上充当标记物体,
+- 自行查阅资料设置好MRTK中的眼动和眼动仿真,然后即可看到标记效果
+
 
 
 

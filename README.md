@@ -8,7 +8,7 @@
 ### machine
 ubuntu20.04<br>
 ros noetic<br>
-unity2020<br>
+unity2022<br>
 
 > [!WARNING]
 > 在了解该功能包之前，请首先理解voxblox,以及下载编译成功voxblox

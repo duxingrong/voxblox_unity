@@ -1,12 +1,6 @@
 # voxblox_unity
 
-<div align="center">
-  <video controls width="640">
-    <source src="https://github.com/duxingrong/voxblox_unity/blob/main/unity/演示视频.mkv" type="video/mp4">
-    您的浏览器不支持视频播放。
-  </video>
-</div>
-
+![voxblox_unity](show.gif)
 
 > [!TIP]
 > 该功能包功能是将voxblox产生的/mesh消息在unity中实时可视化,所以首先需要了解[voxblox](https://github.com/ethz-asl/voxblox) 

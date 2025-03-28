@@ -116,7 +116,8 @@ public class EyeGazeMarker : MonoBehaviour
 
     void PlaceMarker(Vector3 position)
     {
-        GameObject marker = Instantiate(markerPrefab, position, Quaternion.identity);
+        // 设置 z 轴旋转 90 度
+        GameObject marker = Instantiate(markerPrefab, position, Quaternion.Euler(0, 0, 0));
         marker.transform.localScale = Vector3.zero;
         StartCoroutine(ScaleMarker(marker, markerScaleDuration));
     }
@@ -124,7 +125,8 @@ public class EyeGazeMarker : MonoBehaviour
     IEnumerator ScaleMarker(GameObject marker, float duration)
     {
         float elapsedTime = 0f;
-        Vector3 targetScale = Vector3.one;
+        // 修改缩放目标为 (0.1, 0.1, 0.1)
+        Vector3 targetScale = new Vector3(0.3f, 0.3f, 0.3f);
         while (elapsedTime < duration)
         {
             marker.transform.localScale = Vector3.Lerp(Vector3.zero, targetScale, elapsedTime / duration);

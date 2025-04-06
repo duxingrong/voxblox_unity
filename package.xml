@@ -52,10 +52,11 @@
   <build_depend>libeigen3-dev</build_depend>
   <build_depend>roscpp</build_depend>
   <build_depend>voxblox_msgs</build_depend>
+  <!-- <build_depend>nvblox_msgs</build_depend> -->
   <build_export_depend>roscpp</build_export_depend>
   <build_export_depend>voxblox_msgs</build_export_depend>
   <exec_depend>roscpp</exec_depend>
-  <exec_depend>voxblox_msgs</exec_depend>
+  <!-- <exec_depend>nvblox_msgs</exec_depend> -->
 
 
   <!-- The export tag contains other, unspecified, tags -->

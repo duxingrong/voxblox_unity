@@ -7,8 +7,4 @@
     <param name="server_ip" value="$(arg server_ip)" />
   </node>
 
-  <!-- 启动 tf_show_unity.py 节点 -->
-  <node pkg="voxblox_unity" type="tf_show_unity.py" name="tf_show_unity" output="screen">
-    <param name="server_ip" value="$(arg server_ip)" />
-  </node>
 </launch>

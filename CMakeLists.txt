@@ -10,6 +10,7 @@ project(voxblox_unity)
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   voxblox_msgs
+  # nvblox_msgs
 )
 
 find_package(Eigen3 REQUIRED)

@@ -4,6 +4,7 @@
 #include "voxblox_msgs/Mesh.h"
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+#include <arpa/inet.h>
 #include <array>
 #include <atomic>
 #include <cmath>
@@ -12,12 +13,15 @@
 #include <functional>
 #include <iomanip>
 #include <mutex>
+#include <netinet/in.h>
 #include <queue>
 #include <ros/ros.h>
 #include <sstream>
 #include <string>
+#include <sys/socket.h>
 #include <thread>
 #include <tuple>
+#include <unistd.h>
 #include <unordered_map>
 #include <vector>
 

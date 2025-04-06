@@ -5,7 +5,7 @@ using System.Net.Sockets;
 using System.Threading;
 using UnityEngine;
 
-public class OffMesh_Socket : MonoBehaviour
+public class OffMesh_socket : MonoBehaviour
 {
     public int port = 12345; // 端口号
     private TcpListener listener;
@@ -18,6 +18,9 @@ public class OffMesh_Socket : MonoBehaviour
 
     // 用于设置地图对象的 Tag，确保 EyeGazeMarker 脚本能检测到
     public string targetTag = "MapMesh";
+
+   // 用于存储每个块的GameObjects
+    private Dictionary<Vector3Int, GameObject> blockObjects = new Dictionary<Vector3Int, GameObject>();
 
     void Start()
     {
@@ -124,7 +127,7 @@ public class OffMesh_Socket : MonoBehaviour
                     break;
                 }
                 string offData = System.Text.Encoding.UTF8.GetString(dataBuffer);
-                Debug.Log("Received off data.");
+                // Debug.Log("Received off data.");
 
                 // 将 off 数据放入队列，等待主线程中解析生成 Mesh
                 lock (queueLock)
@@ -143,7 +146,7 @@ public class OffMesh_Socket : MonoBehaviour
         }
     }
 
-    void Update()
+     void Update()
     {
         // 检查队列中是否有 off 数据
         string offData = null;
@@ -154,47 +157,105 @@ public class OffMesh_Socket : MonoBehaviour
                 offData = offDataQueue.Dequeue();
             }
         }
+        
         if (!string.IsNullOrEmpty(offData))
         {
-            Mesh mesh = LoadOffFromString(offData);
-            if (mesh != null)
+            // 解析数据类型
+            string[] lines = offData.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+            
+            if (lines[0] == "DELETE_BLOCK")
             {
-                // 添加或获取 MeshFilter 组件并设置 Mesh
-                MeshFilter mf = GetComponent<MeshFilter>();
-                if (mf == null)
-                {
-                    mf = gameObject.AddComponent<MeshFilter>();
-                }
-                mf.mesh = mesh;
-
-                // 添加或获取 MeshRenderer 组件并设置材质
-                MeshRenderer mr = GetComponent<MeshRenderer>();
-                if (mr == null)
-                {
-                    mr = gameObject.AddComponent<MeshRenderer>();
-                }
-                Shader shader = Shader.Find("Shader Graphs/VectorColor");
-                if (shader == null)
-                {
-                    Debug.LogError("Shader Graphs/VectorColor not found.");
-                }
-                else
-                {
-                    mr.material = new Material(shader);
-                }
-
-                // 添加或更新 MeshCollider 组件，以便 EyeGazeMarker 能通过射线检测到地图
-                MeshCollider mc = GetComponent<MeshCollider>();
-                if (mc == null)
-                {
-                    mc = gameObject.AddComponent<MeshCollider>();
-                }
-                mc.sharedMesh = mesh;
-
-                // 设置对象的 Tag，确保与 EyeGazeMarker 脚本中的 targetMeshTag 一致
-                gameObject.tag = targetTag;
+                // 删除一个块
+                string[] blockIndices = lines[1].Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                Vector3Int blockKey = new Vector3Int(
+                    int.Parse(blockIndices[0]), 
+                    int.Parse(blockIndices[1]), 
+                    int.Parse(blockIndices[2]));
+                
+                DeleteBlock(blockKey);
             }
+            else if (lines[0] == "BLOCK_UPDATE")
+            {
+                // 更新一个块
+                string[] blockIndices = lines[1].Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                Vector3Int blockKey = new Vector3Int(
+                    int.Parse(blockIndices[0]), 
+                    int.Parse(blockIndices[1]), 
+                    int.Parse(blockIndices[2]));
+                
+                // 提取该块的OFF数据
+                string blockOffData = string.Join("\n", lines, 2, lines.Length - 2);
+                UpdateBlock(blockKey, blockOffData);
+            }
+
         }
+    }
+    
+    /// <summary>
+    /// 从mesh块表中删除一个块
+    /// </summary>
+    void DeleteBlock(Vector3Int blockKey)
+    {
+        if (blockObjects.TryGetValue(blockKey, out GameObject blockObj))
+        {
+            Destroy(blockObj);
+            blockObjects.Remove(blockKey);
+            Debug.Log($"Deleted block at {blockKey}");
+        }
+    }
+    
+    /// <summary>
+    /// 更新一个mesh块
+    /// </summary>
+    void UpdateBlock(Vector3Int blockKey, string offData)
+    {
+        Mesh blockMesh = LoadOffFromString(offData);
+        if (blockMesh == null) return;
+        
+        GameObject blockObj;
+        if (!blockObjects.TryGetValue(blockKey, out blockObj))
+        {
+            // 创建新块对象
+            blockObj = new GameObject($"Block_{blockKey.x}_{blockKey.y}_{blockKey.z}");
+            blockObj.transform.parent = this.transform;
+            blockObj.tag = targetTag;
+            blockObjects[blockKey] = blockObj;
+        }
+        
+        // 更新块的Mesh组件
+        MeshFilter mf = blockObj.GetComponent<MeshFilter>();
+        if (mf == null)
+        {
+            mf = blockObj.AddComponent<MeshFilter>();
+        }
+        mf.sharedMesh = blockMesh;
+        
+        // 更新渲染器
+        MeshRenderer mr = blockObj.GetComponent<MeshRenderer>();
+        if (mr == null)
+        {
+            mr = blockObj.AddComponent<MeshRenderer>();
+        }
+        Shader shader = Shader.Find("Custom/VertexColor");
+        if (shader == null)
+        {
+            Debug.LogError("Custom/VertexColor not found.");
+            mr.material = new Material(Shader.Find("Standard"));
+        }
+        else
+        {
+            mr.material = new Material(shader);
+        }
+        
+        // 更新碰撞器
+        MeshCollider mc = blockObj.GetComponent<MeshCollider>();
+        if (mc == null)
+        {
+            mc = blockObj.AddComponent<MeshCollider>();
+        }
+        mc.sharedMesh = blockMesh;
+        
+        Debug.Log($"Updated block at {blockKey}");
     }
 
     /// <summary>

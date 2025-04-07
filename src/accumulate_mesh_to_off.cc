@@ -142,6 +142,12 @@ void MeshAccumulator::meshCallback(const voxblox_msgs::Mesh::ConstPtr &msg) {
   }
 }
 
+struct BlockIndex {
+  int x;
+  int y;
+  int z;
+};
+
 /**
  * @brief nvblox 消息回调函数
  *
@@ -150,89 +156,82 @@ void MeshAccumulator::meshCallback(const voxblox_msgs::Mesh::ConstPtr &msg) {
  *
  * @param msg 指向接收到的 nvblox 网格消息
  */
-// void MeshAccumulator::nvbloxMeshCallback(
-//     const nvblox_msgs::Mesh::ConstPtr &msg) {
-//   // 遍历每个网格块，注意：nvblox 消息中 block_indices 与 blocks 数组长度相同
-//   for (size_t i = 0; i < msg->block_indices.size(); ++i) {
-//     const nvblox_msgs::Index3D &block_idx = msg->block_indices[i];
-//     const nvblox_msgs::MeshBlock &block = msg->blocks[i];
-//
-//     std::stringstream ss;
-//     // 若该块为空，表示此块已被删除，发送删除标记
-//     if (block.vertices.empty()) {
-//       ss << "DELETE_BLOCK\n"
-//          << block_idx.x << " " << block_idx.y << " " << block_idx.z << "\n";
-//     } else {
-//       // 计算块的全局偏移：根据 block_indices 与消息中的 block_size
-//       Eigen::Vector3d block_offset(block_idx.x * msg->block_size,
-//                                    block_idx.y * msg->block_size,
-//                                    block_idx.z * msg->block_size);
-//
-//       std::vector<Eigen::Vector3d> blockVertices;
-//       std::vector<std::array<int, 3>> blockFaces;
-//       std::vector<Eigen::Vector3d> blockColors;
-//
-//       // 处理顶点和颜色数据（nvblox 消息中顶点为 geometry_msgs/Point32
-//       // 类型，直接读取即可）
-//       size_t num_vertices = block.vertices.size();
-//       for (size_t j = 0; j < num_vertices; ++j) {
-//         Eigen::Vector3d vertex(block.vertices[j].x, block.vertices[j].y,
-//                                block.vertices[j].z);
-//         // 顶点坐标加上块的全局偏移
-//         vertex += block_offset;
-//         blockVertices.push_back(vertex);
-//
-//         // 处理颜色数据
-//         if (block.colors.size() > j) {
-//           blockColors.push_back(Eigen::Vector3d(
-//               block.colors[j].r, block.colors[j].g, block.colors[j].b));
-//         } else {
-//           blockColors.push_back(Eigen::Vector3d(0.0, 0.0, 0.0));
-//         }
-//       }
-//
-//       // 使用 nvblox 消息中提供的三角形索引构建面列表
-//       size_t num_triangles = block.triangles.size() / 3;
-//       for (size_t j = 0; j < num_triangles; ++j) {
-//         int base = j * 3;
-//         blockFaces.push_back({block.triangles[base], block.triangles[base +
-//         1],
-//                               block.triangles[base + 2]});
-//       }
-//
-//       // 计算顶点法线（即便消息中有 normals，也重新计算以保证一致性）
-//       std::vector<Eigen::Vector3d> blockNormals;
-//       computeVertexNormals(blockVertices, blockFaces, blockNormals);
-//
-//       // 生成带块索引的 OFF 格式数据
-//       ss << "BLOCK_UPDATE\n"
-//          << block_idx.x << " " << block_idx.y << " " << block_idx.z << "\n";
-//       ss << "NCOFF\n"
-//          << blockVertices.size() << " " << blockFaces.size() << " 0\n";
-//
-//       for (size_t j = 0; j < blockVertices.size(); ++j) {
-//         const auto &v = blockVertices[j];
-//         const auto &n = blockNormals[j];
-//         const auto &c = blockColors[j];
-//         ss << std::fixed << std::setprecision(6) << v.x() << " " << v.y() <<
-//         " "
-//            << v.z() << " " << n.x() << " " << n.y() << " " << n.z() << " "
-//            << c.x() << " " << c.y() << " " << c.z() << "\n";
-//       }
-//       for (const auto &face : blockFaces) {
-//         ss << "3 " << face[0] << " " << face[1] << " " << face[2] << "\n";
-//       }
-//     }
-//
-//     // 将当前块更新数据加入发送队列
-//     {
-//       std::lock_guard<std::mutex> lock(queueMutex);
-//       sendQueue.push(ss.str());
-//     }
-//     sendCond.notify_one();
-//   }
-// }
+void MeshAccumulator::nvbloxCallback(const nvblox_msgs::Mesh::ConstPtr &msg) {
+  std::vector<BlockIndex> block_indices;
 
+  //获取所有块状的索引
+  for (const auto &bi : msg->block_indices) {
+    BlockIndex block;
+    block.x = bi.x;
+    block.y = bi.y;
+    block.z = bi.z;
+    block_indices.push_back(block);
+  }
+
+  int count = -1;
+  //遍历每一个块
+  for (const auto &block : msg->blocks) {
+    count++;
+    size_t num_vertices = block.vertices.size();
+    std::stringstream ss;
+    if (num_vertices == 0) {
+      // 空块表示该块被删除，发送一个特殊的标记
+      ss << "DELETE_BLOCK\n"
+         << block_indices[count].x << " " << block_indices[count].y << " "
+         << block_indices[count].z << "\n";
+    } else {
+      //处理非空块
+      std::vector<Eigen::Vector3d> blockVertices;
+      std::vector<Eigen::Vector3d> blockNormals;
+      std::vector<Eigen::Vector3d> blockColors;
+      std::vector<std::array<int, 3>> blockFaces;
+
+      //转换顶点，法向量，颜色
+      for (size_t i = 0; i < num_vertices; ++i) {
+        blockVertices.push_back(Eigen::Vector3d(
+            block.vertices[i].x, block.vertices[i].y, block.vertices[i].z));
+        blockNormals.push_back(Eigen::Vector3d(
+            block.normals[i].x, block.normals[i].y, block.normals[i].z));
+        if (block.colors.size() > 0) {
+          blockColors.push_back(Eigen::Vector3d(
+              block.colors[i].r, block.colors[i].g, block.colors[i].b));
+        } else {
+          blockColors.push_back(Eigen::Vector3d(0.0, 0.0, 0.0));
+        }
+      }
+      size_t num_triangles = block.triangles.size() / 3;
+      for (size_t i = 0; i < num_triangles; ++i) {
+        int base = i * 3;
+        blockFaces.push_back({block.triangles[base], block.triangles[base + 1],
+                              block.triangles[base + 2]});
+      }
+      ss << "BLOCK_UPDATE\n"
+         << block_indices[count].x << " " << block_indices[count].y << " "
+         << block_indices[count].z << "\n";
+
+      ss << "NCOFF\n"
+         << blockVertices.size() << " " << blockFaces.size() << " 0\n";
+
+      for (size_t i = 0; i < blockVertices.size(); ++i) {
+        const auto &v = blockVertices[i];
+        const auto &n = blockNormals[i];
+        const auto &c = blockColors[i];
+        ss << std::fixed << std::setprecision(6) << v.x() << " " << v.y() << " "
+           << v.z() << " " << n.x() << " " << n.y() << " " << n.z() << " "
+           << c.x() << " " << c.y() << " " << c.z() << "\n";
+      }
+      for (const auto &face : blockFaces) {
+        ss << "3 " << face[0] << " " << face[1] << " " << face[2] << "\n";
+      }
+    }
+    // 将当前块更新数据加入发送队列
+    {
+      std::lock_guard<std::mutex> lock(queueMutex);
+      sendQueue.push(ss.str());
+    }
+    sendCond.notify_one();
+  }
+}
 /**
  * @brief 发送数据线程
  *
@@ -321,10 +320,9 @@ int main(int argc, char **argv) {
   ros::Subscriber sub_voxblox = nh.subscribe(
       "/voxblox_node/mesh", 10, &MeshAccumulator::meshCallback, &accumulator);
 
-  // 订阅 nvblox 网格消息
-  // ros::Subscriber sub_nvblox =
-  //     nh.subscribe("/nvblox_node/mesh", 10,
-  //                  &MeshAccumulator::nvbloxMeshCallback, &accumulator);
+  //订阅 nvblox 网格消息
+  ros::Subscriber sub_nvblox = nh.subscribe(
+      "/nvblox_node/mesh", 10, &MeshAccumulator::nvbloxCallback, &accumulator);
 
   // 初始化 socket 连接
   if (!accumulator.initSocket(ip, port)) {

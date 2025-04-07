@@ -11,7 +11,6 @@ def callback(msg):
     colors = []
     normals = []
     triangles = []
-    block_size = msg.block_size
     
     # 记录顶点的总数，用于构建三角形索引
     vertex_count = 0

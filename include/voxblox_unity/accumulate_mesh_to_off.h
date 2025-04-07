@@ -1,6 +1,7 @@
 #ifndef ACCUMULATE_MESH_TO_OFF_H
 #define ACCUMULATE_MESH_TO_OFF_H
 
+#include "nvblox_msgs/Mesh.h"
 #include "voxblox_msgs/Mesh.h"
 #include <Eigen/Core>
 #include <Eigen/Geometry>
@@ -39,6 +40,9 @@ public:
 
   // 回调函数，处理订阅的 voxblox mesh 消息
   void meshCallback(const voxblox_msgs::Mesh::ConstPtr &msg);
+
+  // 回调函数，处理订阅的 nvblox mesh 消息
+  void nvbloxCallback(const nvblox_msgs::Mesh::ConstPtr &msg);
 
   // 初始化 socket 连接
   bool initSocket(const std::string &ip, int port);
